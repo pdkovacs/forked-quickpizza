@@ -7,6 +7,7 @@ services:
     volumes:
       - "./alloy/${ALLOY_FILE_NAME:-local.alloy}:/config.alloy:Z"
       - "${DOCKER_SOCKET:-/var/run/docker.sock}:/var/run/docker.sock"
+      - "${HOME}/workspace/logs:/mnt/workspace/logs"
     command:
       - run
       - /config.alloy
