@@ -53,6 +53,15 @@ prometheus.remote_write "local" {
     send_native_histograms = true
   }
 }
+
+prometheus.remote_write "otlp" {
+  endpoint {
+    // TODO: Replace this with your prometheus-compatible metrics store
+    url = env("METRICS_ENDPOINT")
+    send_native_histograms = true
+  }
+}
+
 prometheus.scrape "application_containers" {
   scrape_interval = "10s"
   targets = discovery.relabel.application_containers.output
@@ -192,7 +201,7 @@ otelcol.connector.servicegraph "default" {
   // enable `exponential_histogram_max_size` option to send native histogram metrics
   // exponential_histogram_max_size = 16
   output {
-    metrics = [otelcol.processor.batch.default.input]
+    metrics = [otelcol.processor.batch.otlp.input]
   }
 }
 
@@ -200,15 +209,17 @@ otelcol.processor.transform "demote_resource_attrs" {
   error_mode = "ignore"
 
   metric_statements {
+    // error_mode = "propagate"
     context = "datapoint"
     statements = [
+      // `set(attributes["debug_resource_name"], resource.attributes["service.name"]) where resource.attributes["service.name"] != nil`,
       `set(attributes["service_name"], resource.attributes["service.name"])`,
       `set(attributes["service_namespace"], resource.attributes["service.namespace"])`,
     ]
   }
 
   output {
-    metrics = [otelcol.processor.batch.default.input]
+    metrics = [otelcol.processor.batch.otlp.input]
   }
 }
 
@@ -226,6 +237,22 @@ otelcol.processor.batch "default" {
 otelcol.exporter.prometheus "local" {
   forward_to = [prometheus.remote_write.local.receiver]
 }
+
+// Traces to OTLP endpoint and Metrics to Prometheus
+otelcol.processor.batch "otlp" {
+  output {
+    metrics = [otelcol.exporter.prometheus.otlp.input]
+    logs = []
+    traces = [
+      otelcol.exporter.otlp.default.input,
+    ]
+  }
+}
+
+otelcol.exporter.prometheus "otlp" {
+  forward_to = [prometheus.remote_write.otlp.receiver]
+}
+
 otelcol.exporter.otlp "default" {
   client {
     // TODO: Replace this with the endpoint for your trace receiver
