@@ -118,7 +118,7 @@ otelcol.receiver.otlp "default" {
 
   output {
     // Receive metrics
-    metrics = [otelcol.processor.batch.default.input]
+    metrics = [otelcol.processor.transform.demote_resource_attrs.input]
     traces  = [
                // Traces to ServiceGraph metrics
                otelcol.connector.servicegraph.default.input,
@@ -195,6 +195,23 @@ otelcol.connector.servicegraph "default" {
     metrics = [otelcol.processor.batch.default.input]
   }
 }
+
+otelcol.processor.transform "demote_resource_attrs" {
+  error_mode = "ignore"
+
+  metric_statements {
+    context = "datapoint"
+    statements = [
+      `set(attributes["service_name"], resource.attributes["service.name"])`,
+      `set(attributes["service_namespace"], resource.attributes["service.namespace"])`,
+    ]
+  }
+
+  output {
+    metrics = [otelcol.processor.batch.default.input]
+  }
+}
+
 // Traces to OTLP endpoint and Metrics to Prometheus
 otelcol.processor.batch "default" {
   output {
